@@ -10,7 +10,7 @@ routes = [
 
 [[kv_namespaces]]
 binding = "DATA_STORE"
-id = "default_kv_namespace"
+id = "7b1355ff022442cba5a5cafe59bbdde7"
 
 [observability]
 enabled = true
