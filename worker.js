@@ -540,4 +540,4 @@ async function getIndexHtml() {
   </script>
 </body>
 </html>`;
-}`;
+}
