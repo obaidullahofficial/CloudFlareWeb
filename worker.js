@@ -1,0 +1,543 @@
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    const path = url.pathname;
+    const method = request.method;
+
+    // Enable CORS
+    const headers = {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    };
+
+    if (method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers });
+    }
+
+    // GET - Retrieve all data
+    if (path === '/api/data' && method === 'GET') {
+      try {
+        const data = await env.DATA_STORE.get('entries');
+        const entries = data ? JSON.parse(data) : [];
+        return new Response(JSON.stringify(entries), { headers });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), { 
+          status: 500, 
+          headers 
+        });
+      }
+    }
+
+    // POST - Add new data
+    if (path === '/api/data' && method === 'POST') {
+      try {
+        const payload = await request.json();
+        
+        // Validate input
+        if (!payload.name || !payload.email || !payload.message) {
+          return new Response(JSON.stringify({ error: 'Missing required fields' }), { 
+            status: 400, 
+            headers 
+          });
+        }
+
+        // Get existing data
+        const data = await env.DATA_STORE.get('entries');
+        const entries = data ? JSON.parse(data) : [];
+
+        // Create new entry
+        const newEntry = {
+          id: Date.now().toString(),
+          name: payload.name,
+          email: payload.email,
+          message: payload.message,
+          timestamp: new Date().toISOString(),
+        };
+
+        entries.push(newEntry);
+
+        // Store updated data
+        await env.DATA_STORE.put('entries', JSON.stringify(entries));
+
+        return new Response(JSON.stringify({ 
+          success: true, 
+          entry: newEntry 
+        }), { headers });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), { 
+          status: 500, 
+          headers 
+        });
+      }
+    }
+
+    // DELETE - Delete data by ID
+    if (path.startsWith('/api/data/') && method === 'DELETE') {
+      try {
+        const id = path.split('/')[3];
+        
+        const data = await env.DATA_STORE.get('entries');
+        const entries = data ? JSON.parse(data) : [];
+
+        const filteredEntries = entries.filter(entry => entry.id !== id);
+
+        await env.DATA_STORE.put('entries', JSON.stringify(filteredEntries));
+
+        return new Response(JSON.stringify({ 
+          success: true, 
+          message: 'Entry deleted' 
+        }), { headers });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), { 
+          status: 500, 
+          headers 
+        });
+      }
+    }
+
+    // PUT - Update data by ID
+    if (path.startsWith('/api/data/') && method === 'PUT') {
+      try {
+        const id = path.split('/')[3];
+        const payload = await request.json();
+        
+        const data = await env.DATA_STORE.get('entries');
+        const entries = data ? JSON.parse(data) : [];
+
+        const entryIndex = entries.findIndex(entry => entry.id === id);
+        
+        if (entryIndex === -1) {
+          return new Response(JSON.stringify({ error: 'Entry not found' }), { 
+            status: 404, 
+            headers 
+          });
+        }
+
+        entries[entryIndex] = {
+          ...entries[entryIndex],
+          name: payload.name || entries[entryIndex].name,
+          email: payload.email || entries[entryIndex].email,
+          message: payload.message || entries[entryIndex].message,
+        };
+
+        await env.DATA_STORE.put('entries', JSON.stringify(entries));
+
+        return new Response(JSON.stringify({ 
+          success: true, 
+          entry: entries[entryIndex] 
+        }), { headers });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), { 
+          status: 500, 
+          headers 
+        });
+      }
+    }
+
+    // Serve HTML
+    if (path === '/' || path === '') {
+      const htmlContent = await getIndexHtml();
+      return new Response(htmlContent, { 
+        headers: { 
+          'Content-Type': 'text/html; charset=utf-8',
+          'Access-Control-Allow-Origin': '*'
+        } 
+      });
+    }
+
+    // 404
+    return new Response(JSON.stringify({ error: 'Not found' }), { 
+      status: 404, 
+      headers 
+    });
+  },
+};
+
+async function getIndexHtml() {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Management App</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      color: white;
+      margin-bottom: 30px;
+      font-size: 2.5em;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .main-content {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+    }
+
+    .form-section, .display-section {
+      background: white;
+      border-radius: 10px;
+      padding: 30px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+
+    h2 {
+      color: #333;
+      margin-bottom: 20px;
+      font-size: 1.5em;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 10px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #555;
+      font-weight: 600;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #ddd;
+      border-radius: 5px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 1em;
+      transition: border-color 0.3s;
+    }
+
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    button {
+      background: #667eea;
+      color: white;
+      padding: 12px 30px;
+      border: none;
+      border-radius: 5px;
+      font-size: 1em;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.3s, transform 0.2s;
+    }
+
+    button:hover {
+      background: #764ba2;
+      transform: translateY(-2px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .message {
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 15px;
+      display: none;
+    }
+
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+      display: block;
+    }
+
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+      display: block;
+    }
+
+    .entries-list {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .entry-card {
+      background: #f8f9fa;
+      border: 2px solid #dee2e6;
+      border-radius: 8px;
+      padding: 20px;
+      transition: all 0.3s;
+    }
+
+    .entry-card:hover {
+      border-color: #667eea;
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+    }
+
+    .entry-card h3 {
+      color: #667eea;
+      margin-bottom: 10px;
+    }
+
+    .entry-card p {
+      color: #666;
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+
+    .entry-card .meta {
+      font-size: 0.9em;
+      color: #999;
+      margin-top: 10px;
+    }
+
+    .entry-card .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .btn-delete {
+      background: #dc3545;
+      padding: 8px 15px;
+      font-size: 0.9em;
+    }
+
+    .btn-delete:hover {
+      background: #c82333;
+    }
+
+    .btn-edit {
+      background: #28a745;
+      padding: 8px 15px;
+      font-size: 0.9em;
+    }
+
+    .btn-edit:hover {
+      background: #218838;
+    }
+
+    .no-entries {
+      text-align: center;
+      color: #999;
+      padding: 40px 20px;
+      font-size: 1.1em;
+    }
+
+    @media (max-width: 768px) {
+      .main-content {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 Data Management System</h1>
+
+    <div class="main-content">
+      <!-- Form Section -->
+      <div class="form-section">
+        <h2>📝 Add New Entry</h2>
+        <div id="formMessage" class="message"></div>
+        
+        <form id="dataForm">
+          <div class="form-group">
+            <label for="name">Name:</label>
+            <input type="text" id="name" required placeholder="Enter your name">
+          </div>
+
+          <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" required placeholder="Enter your email">
+          </div>
+
+          <div class="form-group">
+            <label for="message">Message:</label>
+            <textarea id="message" required placeholder="Enter your message"></textarea>
+          </div>
+
+          <button type="submit">➕ Submit Entry</button>
+        </form>
+      </div>
+
+      <!-- Display Section -->
+      <div class="display-section">
+        <h2>📋 Stored Data</h2>
+        <div id="refreshBtn" style="margin-bottom: 15px;">
+          <button onclick="loadData()">🔄 Refresh Data</button>
+        </div>
+        <div id="entriesList" class="entries-list">
+          <div class="no-entries">No entries yet. Add one to get started!</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin;
+
+    // Load data on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      loadData();
+      document.getElementById('dataForm').addEventListener('submit', handleSubmit);
+    });
+
+    async function loadData() {
+      try {
+        const response = await fetch(\`\${API_BASE}/api/data\`);
+        const entries = await response.json();
+        displayEntries(entries);
+      } catch (error) {
+        console.error('Error loading data:', error);
+        showMessage('Error loading data', 'error');
+      }
+    }
+
+    function displayEntries(entries) {
+      const entriesList = document.getElementById('entriesList');
+      
+      if (!entries || entries.length === 0) {
+        entriesList.innerHTML = '<div class="no-entries">No entries yet. Add one to get started!</div>';
+        return;
+      }
+
+      entriesList.innerHTML = entries.map(entry => \`
+        <div class="entry-card">
+          <h3>\${escapeHtml(entry.name)}</h3>
+          <p><strong>Email:</strong> \${escapeHtml(entry.email)}</p>
+          <p><strong>Message:</strong> \${escapeHtml(entry.message)}</p>
+          <div class="meta">
+            📅 \${new Date(entry.timestamp).toLocaleString()}
+          </div>
+          <div class="actions">
+            <button class="btn-edit" onclick="editEntry('\${entry.id}')">✏️ Edit</button>
+            <button class="btn-delete" onclick="deleteEntry('\${entry.id}')">🗑️ Delete</button>
+          </div>
+        </div>
+      \`).join('');
+    }
+
+    async function handleSubmit(e) {
+      e.preventDefault();
+
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const message = document.getElementById('message').value;
+
+      try {
+        const response = await fetch(\`\${API_BASE}/api/data\`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, message }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          showMessage('✅ Entry added successfully!', 'success');
+          document.getElementById('dataForm').reset();
+          loadData();
+        } else {
+          showMessage('❌ ' + data.error, 'error');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        showMessage('❌ Error adding entry', 'error');
+      }
+    }
+
+    async function deleteEntry(id) {
+      if (!confirm('Are you sure you want to delete this entry?')) return;
+
+      try {
+        const response = await fetch(\`\${API_BASE}/api/data/\${id}\`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          showMessage('✅ Entry deleted!', 'success');
+          loadData();
+        } else {
+          showMessage('❌ Error deleting entry', 'error');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        showMessage('❌ Error deleting entry', 'error');
+      }
+    }
+
+    function editEntry(id) {
+      alert('Edit functionality coming soon!');
+    }
+
+    function showMessage(msg, type) {
+      const msgDiv = document.getElementById('formMessage');
+      msgDiv.textContent = msg;
+      msgDiv.className = 'message ' + type;
+      setTimeout(() => {
+        msgDiv.className = 'message';
+      }, 5000);
+    }
+
+    function escapeHtml(text) {
+      const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      };
+      return text.replace(/[&<>"']/g, m => map[m]);
+    }
+  </script>
+</body>
+</html>`;
+}`;

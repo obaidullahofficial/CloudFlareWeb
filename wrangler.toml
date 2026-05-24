@@ -1,0 +1,16 @@
+name = "data-app"
+main = "worker.js"
+compatibility_date = "2026-05-22"
+
+[env.production]
+name = "data-app-prod"
+routes = [
+  { pattern = "data-app.workers.dev", zone_name = "data-app.workers.dev" }
+]
+
+[[kv_namespaces]]
+binding = "DATA_STORE"
+id = "default_kv_namespace"
+
+[observability]
+enabled = true
