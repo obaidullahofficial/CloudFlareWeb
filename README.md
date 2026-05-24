@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Data Management System
 
 A full-stack web application built with Cloudflare Workers for managing data entries with a beautiful web interface.
@@ -217,3 +218,7 @@ MIT - Feel free to use this project for any purpose
 
 For issues or questions, check the Cloudflare Workers documentation:
 https://developers.cloudflare.com/workers/
+=======
+# CloudFlareWeb
+CloudFlareWeb
+>>>>>>> f2a224de1d2725f0bb3b24b2384feeb86283dc3d
